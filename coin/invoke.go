@@ -125,6 +125,13 @@ func (coin *Yeasycoin) issueCoin(stub shim.ChaincodeStubInterface, args []string
 	} else {
 		tx.Id = txHash
 	}
+	txBytes, err := proto.Marshal(tx)
+	if err != nil {
+		return nil, err
+	}
+	if err := stub.PutState(fmt.Sprintf("tx_%s", tx.Id), txBytes); err != nil {
+		return nil, err
+	}
 
 	// get centerbank
 	cbankBytes, err := stub.GetState("bank_0")
@@ -146,12 +153,86 @@ func (coin *Yeasycoin) issueCoin(stub shim.ChaincodeStubInterface, args []string
 		return nil, err
 	}
 
-	return proto.Marshal(tx)
+	return txBytes, nil
 }
 
 func (coin *Yeasycoin) issueCoinToBank(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	if len(args) != 3 {
+		return nil, ErrInvalidParams
+	}
 
-	return nil, nil
+	bankId, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	transferCount, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	timestamp := args[2]
+
+	// transfer form centerbank to bank
+	tx := &Transaction{
+		FromType:  Transaction_FROM_CENTERBANK,
+		FromId:    0,
+		ToType:    Transaction_TO_BANK,
+		ToId:      bankId,
+		Timestamp: timestamp,
+		Number:    transferCount,
+	}
+	if txHash, err := HashTx(tx); err != nil {
+		return nil, err
+	} else {
+		tx.Id = txHash
+	}
+	txBytes, err := proto.Marshal(tx)
+	if err != nil {
+		return nil, err
+	}
+	if err := stub.PutState(fmt.Sprintf("tx_%s", tx.Id), txBytes); err != nil {
+		return nil, err
+	}
+
+	// get center bank & bank
+	cbankBytes, err := stub.GetState("bank_0")
+	if err != nil {
+		return nil, err
+	}
+	cbank, err := ParseBank(cbankBytes)
+	if err != nil {
+		return nil, err
+	}
+	cbank.RestNumber -= transferCount
+
+	cbankBytes, err = proto.Marshal(cbank)
+	if err != nil {
+		return nil, err
+	}
+	if err := stub.PutState("bank_0", cbankBytes); err != nil {
+		return nil, err
+	}
+
+	bankKey := fmt.Sprintf("bank_%v", bankId)
+	bankBytes, err := stub.GetState(bankKey)
+	if err != nil {
+		return nil, err
+	}
+	bank, err := ParseBank(bankBytes)
+	if err != nil {
+		return nil, err
+	}
+	bank.TotalNumber += transferCount
+	bank.RestNumber += transferCount
+
+	bankBytes, err = proto.Marshal(bank)
+	if err != nil {
+		return nil, err
+	}
+	if err := stub.PutState(bankKey, bankBytes); err != nil {
+		return nil, err
+	}
+
+	return txBytes, nil
 }
 
 func (coin *Yeasycoin) issueCoinToCp(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
