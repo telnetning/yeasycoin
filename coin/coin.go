@@ -102,7 +102,7 @@ func (coin *Yeasycoin) Invoke(stub shim.ChaincodeStubInterface, function string,
 	}
 }
 
-func (coin *Yeasycoin) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, err) {
+func (coin *Yeasycoin) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	switch function {
 	case "queryBank0Name":
 		return stub.GetState("bank_0")
