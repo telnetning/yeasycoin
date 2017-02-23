@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	"time"
 )
 
 func (coin *Yeasycoin) createBank(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
